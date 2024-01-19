@@ -1,2 +1,3 @@
-# pixel-adventure
-Following the Pixel Adventure Tutorial
+# pixel_adventure
+
+A new Flutter project.
