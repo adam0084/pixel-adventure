@@ -1,13 +1,14 @@
 name: pixel_adventure
 description: "A new Flutter project."
-publish_to: 'none'
+publish_to: "none"
 version: 0.1.0
 
 environment:
-  sdk: '>=3.2.5 <4.0.0'
+  sdk: ">=3.2.5 <4.0.0"
 
 dependencies:
   flame: ^1.14.0
+  flame_tiled: ^1.18.3
   flutter:
     sdk: flutter
   tiled: ^0.10.2
@@ -19,3 +20,12 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  assets:
+    - assets/
+    - assets/tiles/
+    - assets/images/
+    - assets/images/Terrain/
+    - assets/images/Main Characters/Mask Dude/
+    - assets/images/Main Characters/Ninja Frog/
+    - assets/images/Main Characters/Pink Man/
+    - assets/images/Main Characters/Virtual Guy/
