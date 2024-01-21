@@ -38,7 +38,9 @@ class _GameContainerState extends State<GameContainer> {
     return Container(
       width: double.infinity,
       height: double.infinity,
-      child: GameWidget(game: game),
+      child: Focus(
+          child: GameWidget(game: game),
+          onKey: (FocusNode node, RawKeyEvent event) => KeyEventResult.handled),
     );
   }
 }

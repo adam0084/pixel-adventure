@@ -36,11 +36,11 @@ JoystickComponent makeJoystick({required PixelAdventure game}) {
   joystick.scale = Vector2.all(scalingFactor);
   joystick.anchor = Anchor.bottomLeft;
 
-  Vector2 viewportSize = game.camera.viewport.virtualSize.clone();
+  // Vector2 viewportSize = game.camera.viewport.virtualSize.clone();
+  // joystick.position = Vector2(margin, viewportSize.y - margin);
 
   // log('viewportSize: $viewportSize');
 
-  joystick.position = Vector2(margin, viewportSize.y - margin);
   // joystick.margin = EdgeInsets.only(left: margin, bottom: margin);
 
   return joystick;
