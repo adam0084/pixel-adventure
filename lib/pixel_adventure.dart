@@ -14,7 +14,8 @@ import 'package:pixel_adventure/make_joystick.dart';
 final worldSize = Vector2(640, 360);
 final joystickMargin = 20.0;
 
-class PixelAdventure extends FlameGame with HasKeyboardHandlerComponents {
+class PixelAdventure extends FlameGame
+    with HasKeyboardHandlerComponents, DragCallbacks {
   PixelAdventure()
       // : super(
       //       camera:

@@ -1,16 +1,22 @@
 import 'dart:async';
 import 'dart:developer';
 
+import 'package:flame/collisions.dart';
 import 'package:flame/components.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
+import 'package:pixel_adventure/levels/collision_block.dart';
 
 import '../pixel_adventure.dart';
 
 const double stepTime = 0.05;
+const double gravity = 50;
 
 enum PlayerState { idle, run, hit, jump, fall, wallJump, doubleJump }
 
 enum PlayerDirection { left, right, none }
+
+enum PrimaryDirection { up, down, left, right, none }
 
 PlayerDirection resolvePlayerDirection(
     PlayerDirection keyBoardDirection, PlayerDirection joystickDirection) {
@@ -23,8 +29,43 @@ PlayerDirection resolvePlayerDirection(
   return direction;
 }
 
+PrimaryDirection getXDirectionFromVelocity(Vector2 velocity) {
+  PrimaryDirection direction = PrimaryDirection.none;
+  if (velocity.x > 0) {
+    direction = PrimaryDirection.right;
+  } else if (velocity.x < 0) {
+    direction = PrimaryDirection.left;
+  }
+  return direction;
+}
+
+PrimaryDirection getYDirectionFromVelocity(Vector2 velocity) {
+  PrimaryDirection direction = PrimaryDirection.none;
+  if (velocity.y > 0) {
+    direction = PrimaryDirection.down;
+  } else if (velocity.y < 0) {
+    direction = PrimaryDirection.up;
+  }
+  return direction;
+}
+
+PrimaryDirection getPrimaryDirectionFromVelocity(Vector2 velocity) {
+  PrimaryDirection direction = PrimaryDirection.none;
+  if (velocity.x.abs() > velocity.y.abs()) {
+    direction = getXDirectionFromVelocity(velocity);
+  } else {
+    direction = getYDirectionFromVelocity(velocity);
+  }
+
+  return direction;
+}
+
+bool isVerticalDirection(PrimaryDirection direction) {
+  return direction == PrimaryDirection.up || direction == PrimaryDirection.down;
+}
+
 class Player extends SpriteAnimationGroupComponent
-    with HasGameRef<PixelAdventure>, KeyboardHandler {
+    with HasGameRef<PixelAdventure>, KeyboardHandler, CollisionCallbacks {
   final String characterName;
 
   PlayerDirection direction = PlayerDirection.none;
@@ -40,6 +81,8 @@ class Player extends SpriteAnimationGroupComponent
   @override
   FutureOr<void> onLoad() {
     _loadAllAnimations();
+    add(RectangleHitbox());
+    debugMode = true;
     return super.onLoad();
   }
 
@@ -73,6 +116,43 @@ class Player extends SpriteAnimationGroupComponent
     return super.onKeyEvent(event, keysPressed);
   }
 
+  @override
+  void onCollision(Set<Vector2> intersectionPoints, PositionComponent other) {
+    // TODO: implement onCollision
+    // log('onCollision: $intersectionPoints, $other');
+    _updateVelocityAndPositionFromCollision(intersectionPoints, other);
+    super.onCollision(intersectionPoints, other);
+  }
+
+  void _updateVelocityAndPositionFromCollision(
+      Set<Vector2> intersectionPoints, PositionComponent other) {
+    if (other is CollisionBlock) {
+      final primaryDirection = getPrimaryDirectionFromVelocity(velocity);
+      final primaryYDirection = getYDirectionFromVelocity(velocity);
+      final primaryXDirection = getXDirectionFromVelocity(velocity);
+      final isVertical = isVerticalDirection(primaryDirection);
+      if (isVertical) {
+        velocity.y = 0;
+      } else {
+        velocity.x = 0;
+      }
+      if (primaryYDirection == PrimaryDirection.up) {
+        position = position.clone()..y = other.bottom;
+      } else if (primaryYDirection == PrimaryDirection.down) {
+        position = position.clone()..y = other.top - size.y;
+      }
+
+      if (primaryXDirection == PrimaryDirection.left) {
+        position = position.clone()..x = other.right;
+      } else if (primaryXDirection == PrimaryDirection.right) {
+        position = position.clone()..x = other.left - size.x;
+      }
+    } else {
+      log('other is not CollisionBlock');
+      velocity = Vector2.zero();
+    }
+  }
+
   double _adjustMoveSpeedFromJoystick() {
     double adjustedMoveSpeed = moveSpeed;
     if (joystick.direction != JoystickDirection.idle) {
@@ -93,7 +173,8 @@ class Player extends SpriteAnimationGroupComponent
 
   void _updatePlayerMovement(double dt) {
     double dx = 0.0;
-    double dy = 0.0;
+    // double dy = velocity.y + gravity * dt;
+    double dy = gravity * dt;
     double adjustedMoveSpeed = _adjustMoveSpeedFromJoystick();
     PlayerDirection joystickDirection = _getPlayerDirectionFromJoystick();
     direction = resolvePlayerDirection(keyDirection, joystickDirection);
