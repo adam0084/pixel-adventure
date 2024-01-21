@@ -15,7 +15,7 @@ final worldSize = Vector2(640, 360);
 final joystickMargin = 20.0;
 
 class PixelAdventure extends FlameGame
-    with HasKeyboardHandlerComponents, DragCallbacks {
+    with HasKeyboardHandlerComponents, DragCallbacks, HasCollisionDetection {
   PixelAdventure()
       // : super(
       //       camera:

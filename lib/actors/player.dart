@@ -3,7 +3,6 @@ import 'dart:developer';
 
 import 'package:flame/collisions.dart';
 import 'package:flame/components.dart';
-import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 import 'package:pixel_adventure/levels/collision_block.dart';
 
@@ -11,19 +10,35 @@ import '../pixel_adventure.dart';
 
 const double stepTime = 0.05;
 const double gravity = 50;
+const double joystickVerticalSensitivityThreshold = 0.35;
 
 enum PlayerState { idle, run, hit, jump, fall, wallJump, doubleJump }
 
-enum PlayerDirection { left, right, none }
+enum HorizontalPlayerDirection { left, right, none }
+
+enum VerticalPlayerDirection { up, down, none }
 
 enum PrimaryDirection { up, down, left, right, none }
 
-PlayerDirection resolvePlayerDirection(
-    PlayerDirection keyBoardDirection, PlayerDirection joystickDirection) {
-  PlayerDirection direction = PlayerDirection.none;
-  if (keyBoardDirection != PlayerDirection.none) {
+HorizontalPlayerDirection resolveHorizontalPlayerDirection(
+    HorizontalPlayerDirection keyBoardDirection,
+    HorizontalPlayerDirection joystickDirection) {
+  HorizontalPlayerDirection direction = HorizontalPlayerDirection.none;
+  if (keyBoardDirection != HorizontalPlayerDirection.none) {
     direction = keyBoardDirection;
-  } else if (joystickDirection != PlayerDirection.none) {
+  } else if (joystickDirection != HorizontalPlayerDirection.none) {
+    direction = joystickDirection;
+  }
+  return direction;
+}
+
+VerticalPlayerDirection resolveVerticalPlayerDirection(
+    VerticalPlayerDirection keyBoardDirection,
+    VerticalPlayerDirection joystickDirection) {
+  VerticalPlayerDirection direction = VerticalPlayerDirection.none;
+  if (keyBoardDirection != VerticalPlayerDirection.none) {
+    direction = keyBoardDirection;
+  } else if (joystickDirection != VerticalPlayerDirection.none) {
     direction = joystickDirection;
   }
   return direction;
@@ -68,11 +83,18 @@ class Player extends SpriteAnimationGroupComponent
     with HasGameRef<PixelAdventure>, KeyboardHandler, CollisionCallbacks {
   final String characterName;
 
-  PlayerDirection direction = PlayerDirection.none;
-  PlayerDirection keyDirection = PlayerDirection.none;
+  HorizontalPlayerDirection horizontalDirection =
+      HorizontalPlayerDirection.none;
+  HorizontalPlayerDirection horizontalKeyDirection =
+      HorizontalPlayerDirection.none;
+  VerticalPlayerDirection verticalDirection = VerticalPlayerDirection.none;
+  VerticalPlayerDirection verticalKeyDirection = VerticalPlayerDirection.none;
+
   double moveSpeed = 100;
   Vector2 velocity = Vector2.zero();
   JoystickComponent joystick;
+
+  List<PositionComponent> collisionComponents = [];
 
   Player({required this.characterName, required this.joystick});
 
@@ -82,6 +104,8 @@ class Player extends SpriteAnimationGroupComponent
   FutureOr<void> onLoad() {
     _loadAllAnimations();
     add(RectangleHitbox());
+    game.collisionDetection.collisionsCompletedNotifier
+        .addListener(_resolveCollisions);
     debugMode = true;
     return super.onLoad();
   }
@@ -102,14 +126,31 @@ class Player extends SpriteAnimationGroupComponent
         keysPressed.contains(LogicalKeyboardKey.arrowRight) ||
             keysPressed.contains(LogicalKeyboardKey.keyD);
 
+    final isUpKeyPressed = keysPressed.contains(LogicalKeyboardKey.arrowUp) ||
+        keysPressed.contains(LogicalKeyboardKey.keyW);
+
+    final isDownKeyPressed =
+        keysPressed.contains(LogicalKeyboardKey.arrowDown) ||
+            keysPressed.contains(LogicalKeyboardKey.keyS);
+
     if (isLeftKeyPressed && isRightKeyPressed) {
-      keyDirection = PlayerDirection.none;
+      horizontalKeyDirection = HorizontalPlayerDirection.none;
     } else if (isLeftKeyPressed) {
-      keyDirection = PlayerDirection.left;
+      horizontalKeyDirection = HorizontalPlayerDirection.left;
     } else if (isRightKeyPressed) {
-      keyDirection = PlayerDirection.right;
+      horizontalKeyDirection = HorizontalPlayerDirection.right;
     } else {
-      keyDirection = PlayerDirection.none;
+      horizontalKeyDirection = HorizontalPlayerDirection.none;
+    }
+
+    if (isUpKeyPressed && isDownKeyPressed) {
+      verticalKeyDirection = VerticalPlayerDirection.none;
+    } else if (isUpKeyPressed) {
+      verticalKeyDirection = VerticalPlayerDirection.up;
+    } else if (isDownKeyPressed) {
+      verticalKeyDirection = VerticalPlayerDirection.down;
+    } else {
+      verticalKeyDirection = VerticalPlayerDirection.none;
     }
 
     // log('onKeyEvent: $event, $keysPressed');
@@ -120,9 +161,12 @@ class Player extends SpriteAnimationGroupComponent
   void onCollision(Set<Vector2> intersectionPoints, PositionComponent other) {
     // TODO: implement onCollision
     // log('onCollision: $intersectionPoints, $other');
-    _updateVelocityAndPositionFromCollision(intersectionPoints, other);
+    // _updateVelocityAndPositionFromCollision(intersectionPoints, other);
+    collisionComponents.add(other);
     super.onCollision(intersectionPoints, other);
   }
+
+  void _resolveCollisions() {}
 
   void _updateVelocityAndPositionFromCollision(
       Set<Vector2> intersectionPoints, PositionComponent other) {
@@ -152,7 +196,7 @@ class Player extends SpriteAnimationGroupComponent
     }
   }
 
-  double _adjustMoveSpeedFromJoystick() {
+  double _adjustHorizontalMoveSpeedFromJoystick() {
     double adjustedMoveSpeed = moveSpeed;
     if (joystick.direction != JoystickDirection.idle) {
       adjustedMoveSpeed = moveSpeed * joystick.relativeDelta.x.abs();
@@ -160,25 +204,52 @@ class Player extends SpriteAnimationGroupComponent
     return adjustedMoveSpeed;
   }
 
-  PlayerDirection _getPlayerDirectionFromJoystick() {
-    PlayerDirection joystickDirection = PlayerDirection.none;
+  double _adjustVerticalMoveSpeedFromJoystick() {
+    double adjustedMoveSpeed = moveSpeed;
+    if (joystick.direction != JoystickDirection.idle) {
+      adjustedMoveSpeed = moveSpeed * joystick.relativeDelta.y.abs();
+    }
+    return adjustedMoveSpeed;
+  }
+
+  HorizontalPlayerDirection _getHorizontalPlayerDirectionFromJoystick() {
+    HorizontalPlayerDirection joystickDirection =
+        HorizontalPlayerDirection.none;
     if (joystick.direction != JoystickDirection.idle) {
       joystickDirection = joystick.relativeDelta.x > 0
-          ? PlayerDirection.right
-          : PlayerDirection.left;
+          ? HorizontalPlayerDirection.right
+          : HorizontalPlayerDirection.left;
+    }
+    return joystickDirection;
+  }
+
+  VerticalPlayerDirection _getVerticalPlayerDirectionFromJoystick() {
+    VerticalPlayerDirection joystickDirection = VerticalPlayerDirection.none;
+    if (joystick.direction != JoystickDirection.idle &&
+        joystick.relativeDelta.y.abs() > joystickVerticalSensitivityThreshold) {
+      joystickDirection = joystick.relativeDelta.y > 0
+          ? VerticalPlayerDirection.down
+          : VerticalPlayerDirection.up;
     }
     return joystickDirection;
   }
 
   void _updatePlayerMovement(double dt) {
+    _updateHorizontalMovement(dt);
+    _updateVerticalMovement(dt);
+    position += velocity * dt;
+    collisionComponents.clear();
+  }
+
+  void _updateHorizontalMovement(double dt) {
     double dx = 0.0;
-    // double dy = velocity.y + gravity * dt;
-    double dy = gravity;
-    double adjustedMoveSpeed = _adjustMoveSpeedFromJoystick();
-    PlayerDirection joystickDirection = _getPlayerDirectionFromJoystick();
-    direction = resolvePlayerDirection(keyDirection, joystickDirection);
-    switch (direction) {
-      case PlayerDirection.left:
+    double adjustedMoveSpeed = _adjustHorizontalMoveSpeedFromJoystick();
+    HorizontalPlayerDirection joystickDirection =
+        _getHorizontalPlayerDirectionFromJoystick();
+    horizontalDirection = resolveHorizontalPlayerDirection(
+        horizontalKeyDirection, joystickDirection);
+    switch (horizontalDirection) {
+      case HorizontalPlayerDirection.left:
         dx -= adjustedMoveSpeed;
         if (isFacingRight) {
           flipHorizontallyAroundCenter();
@@ -186,7 +257,7 @@ class Player extends SpriteAnimationGroupComponent
         }
         current = PlayerState.run;
         break;
-      case PlayerDirection.right:
+      case HorizontalPlayerDirection.right:
         if (!isFacingRight) {
           flipHorizontallyAroundCenter();
           isFacingRight = true;
@@ -194,12 +265,39 @@ class Player extends SpriteAnimationGroupComponent
         dx += adjustedMoveSpeed;
         current = PlayerState.run;
         break;
-      case PlayerDirection.none:
+      case HorizontalPlayerDirection.none:
         current = PlayerState.idle;
         break;
     }
-    velocity = Vector2(dx, dy);
-    position += velocity * dt;
+    velocity = Vector2(dx, velocity.y);
+  }
+
+  void _updateVerticalMovement(double dt) {
+    // double dy = velocity.y + gravity * dt;
+    double dy = 0;
+    double adjustedMoveSpeed = _adjustVerticalMoveSpeedFromJoystick();
+    VerticalPlayerDirection joystickDirection =
+        _getVerticalPlayerDirectionFromJoystick();
+    verticalDirection =
+        resolveVerticalPlayerDirection(verticalKeyDirection, joystickDirection);
+    switch (verticalDirection) {
+      case VerticalPlayerDirection.up:
+        dy -= adjustedMoveSpeed;
+        current = PlayerState.jump;
+        break;
+      case VerticalPlayerDirection.down:
+        dy += adjustedMoveSpeed;
+        current = PlayerState.fall;
+        break;
+      default:
+        // do nothing becasue the horizontal movement will take care of it
+        break;
+      // case VerticalPlayerDirection.none:
+      //   if(horizontalDirection == HorizontalPlayerDirection.none)
+      //   current = PlayerState.idle;
+      //   break;
+    }
+    velocity = Vector2(velocity.x, dy);
   }
 
   void _loadAllAnimations() {

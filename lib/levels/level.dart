@@ -5,7 +5,7 @@ import 'package:flame_tiled/flame_tiled.dart';
 import 'package:pixel_adventure/actors/player.dart';
 import 'package:pixel_adventure/levels/collision_block.dart';
 
-class Level extends World with HasCollisionDetection {
+class Level extends World {
   late final Player player;
 
   Level({required this.player});
