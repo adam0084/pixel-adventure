@@ -133,19 +133,18 @@ class Player extends SpriteAnimationGroupComponent
       final isVertical = isVerticalDirection(primaryDirection);
       if (isVertical) {
         velocity.y = 0;
+        if (primaryYDirection == PrimaryDirection.up) {
+          position = position.clone()..y = other.bottom;
+        } else if (primaryYDirection == PrimaryDirection.down) {
+          position = position.clone()..y = other.top - size.y;
+        }
       } else {
         velocity.x = 0;
-      }
-      if (primaryYDirection == PrimaryDirection.up) {
-        position = position.clone()..y = other.bottom;
-      } else if (primaryYDirection == PrimaryDirection.down) {
-        position = position.clone()..y = other.top - size.y;
-      }
-
-      if (primaryXDirection == PrimaryDirection.left) {
-        position = position.clone()..x = other.right;
-      } else if (primaryXDirection == PrimaryDirection.right) {
-        position = position.clone()..x = other.left - size.x;
+        if (primaryXDirection == PrimaryDirection.left) {
+          position = position.clone()..x = other.right;
+        } else if (primaryXDirection == PrimaryDirection.right) {
+          position = position.clone()..x = other.left - size.x;
+        }
       }
     } else {
       log('other is not CollisionBlock');
@@ -162,25 +161,25 @@ class Player extends SpriteAnimationGroupComponent
   }
 
   PlayerDirection _getPlayerDirectionFromJoystick() {
-    PlayerDirection direction = PlayerDirection.none;
+    PlayerDirection joystickDirection = PlayerDirection.none;
     if (joystick.direction != JoystickDirection.idle) {
-      direction = joystick.relativeDelta.x > 0
+      joystickDirection = joystick.relativeDelta.x > 0
           ? PlayerDirection.right
           : PlayerDirection.left;
     }
-    return direction;
+    return joystickDirection;
   }
 
   void _updatePlayerMovement(double dt) {
     double dx = 0.0;
     // double dy = velocity.y + gravity * dt;
-    double dy = gravity * dt;
+    double dy = gravity;
     double adjustedMoveSpeed = _adjustMoveSpeedFromJoystick();
     PlayerDirection joystickDirection = _getPlayerDirectionFromJoystick();
     direction = resolvePlayerDirection(keyDirection, joystickDirection);
     switch (direction) {
       case PlayerDirection.left:
-        dx -= adjustedMoveSpeed * dt;
+        dx -= adjustedMoveSpeed;
         if (isFacingRight) {
           flipHorizontallyAroundCenter();
           isFacingRight = false;
@@ -192,7 +191,7 @@ class Player extends SpriteAnimationGroupComponent
           flipHorizontallyAroundCenter();
           isFacingRight = true;
         }
-        dx += adjustedMoveSpeed * dt;
+        dx += adjustedMoveSpeed;
         current = PlayerState.run;
         break;
       case PlayerDirection.none:
@@ -200,7 +199,7 @@ class Player extends SpriteAnimationGroupComponent
         break;
     }
     velocity = Vector2(dx, dy);
-    position += velocity;
+    position += velocity * dt;
   }
 
   void _loadAllAnimations() {

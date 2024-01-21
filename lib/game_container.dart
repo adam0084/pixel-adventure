@@ -38,7 +38,7 @@ class _GameContainerState extends State<GameContainer> {
   }
 
   KeyEventResult _onKeyEvent(FocusNode node, RawKeyEvent event) {
-    log('Key event: ${event.logicalKey}');
+    // log('Key event: ${event.logicalKey}');
     if (event.logicalKey == LogicalKeyboardKey.keyR) {
       _resetGame();
     }
