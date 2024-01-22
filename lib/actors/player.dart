@@ -3,6 +3,7 @@ import 'dart:developer';
 
 import 'package:flame/collisions.dart';
 import 'package:flame/components.dart';
+import 'package:flame/extensions.dart';
 import 'package:flutter/services.dart';
 import 'package:pixel_adventure/levels/collision_block.dart';
 
@@ -79,6 +80,13 @@ bool isVerticalDirection(PrimaryDirection direction) {
   return direction == PrimaryDirection.up || direction == PrimaryDirection.down;
 }
 
+class SavedCollision {
+  final Set<Vector2> intersectionPoints;
+  final PositionComponent other;
+
+  SavedCollision(this.intersectionPoints, this.other);
+}
+
 class Player extends SpriteAnimationGroupComponent
     with HasGameRef<PixelAdventure>, KeyboardHandler, CollisionCallbacks {
   final String characterName;
@@ -94,11 +102,37 @@ class Player extends SpriteAnimationGroupComponent
   Vector2 velocity = Vector2.zero();
   JoystickComponent joystick;
 
-  List<PositionComponent> collisionComponents = [];
+  List<SavedCollision> collisionComponents = [];
 
   Player({required this.characterName, required this.joystick});
 
-  bool isFacingRight = true;
+  // bool isFacingRight = true;
+
+  bool get isFacingRight => !isFlippedHorizontally;
+  double get centerX => position.x + size.x / 2;
+  double get centerY => position.y + size.y / 2;
+
+  List<SavedCollision> get closestHorizontalCollisionComponents {
+    final cx = centerX;
+    return collisionComponents.toList()
+      ..sort((a, b) {
+        final ax = a.other.position.x;
+        final bx = b.other.position.x;
+
+        return (ax - cx).abs().compareTo((bx - cx).abs());
+      });
+  }
+
+  List<SavedCollision> get closestVerticalCollisionComponents {
+    final cy = centerY;
+    return collisionComponents.toList()
+      ..sort((a, b) {
+        final ay = a.other.position.y;
+        final by = b.other.position.y;
+
+        return (ay - cy).abs().compareTo((by - cy).abs());
+      });
+  }
 
   @override
   FutureOr<void> onLoad() {
@@ -162,37 +196,78 @@ class Player extends SpriteAnimationGroupComponent
     // TODO: implement onCollision
     // log('onCollision: $intersectionPoints, $other');
     // _updateVelocityAndPositionFromCollision(intersectionPoints, other);
-    collisionComponents.add(other);
+    collisionComponents.add(SavedCollision(intersectionPoints, other));
     super.onCollision(intersectionPoints, other);
   }
 
-  void _resolveCollisions() {}
+  void _resolveCollisions() {
+    _handleHorizontalCollisions();
+    _handleVerticalCollisions();
+  }
 
-  void _updateVelocityAndPositionFromCollision(
-      Set<Vector2> intersectionPoints, PositionComponent other) {
-    if (other is CollisionBlock) {
-      final primaryDirection = getPrimaryDirectionFromVelocity(velocity);
-      final primaryYDirection = getYDirectionFromVelocity(velocity);
-      final primaryXDirection = getXDirectionFromVelocity(velocity);
-      final isVertical = isVerticalDirection(primaryDirection);
-      if (isVertical) {
-        velocity.y = 0;
-        if (primaryYDirection == PrimaryDirection.up) {
-          position = position.clone()..y = other.bottom;
-        } else if (primaryYDirection == PrimaryDirection.down) {
-          position = position.clone()..y = other.top - size.y;
-        }
-      } else {
-        velocity.x = 0;
-        if (primaryXDirection == PrimaryDirection.left) {
-          position = position.clone()..x = other.right;
-        } else if (primaryXDirection == PrimaryDirection.right) {
-          position = position.clone()..x = other.left - size.x;
+  void _handleHorizontalCollisions() {
+    for (final prevCollision in closestHorizontalCollisionComponents) {
+      final block = prevCollision.other;
+      log('prevCollision: ${prevCollision.intersectionPoints} $block');
+      if (prevCollision.intersectionPoints.length == 2) {
+        final p1 = prevCollision.intersectionPoints.elementAt(0);
+        final p2 = prevCollision.intersectionPoints.elementAt(1);
+        final dy = p1.y - p2.y;
+        if ((dy * 10000).round() == 0) {
+          // if the y values are the same, then we can assume that the player is colliding with a wall
+          continue;
         }
       }
-    } else {
-      log('other is not CollisionBlock');
-      velocity = Vector2.zero();
+      if (block is CollisionBlock) {
+        if (!block.isPlatform) {
+          if (velocity.x > 0) {
+            position.x = block.left - size.x;
+          }
+          if (velocity.x < 0) {
+            if (isFacingRight) {
+              position.x = block.right;
+            } else {
+              position.x = block.right + size.x;
+            }
+          }
+          velocity.x = 0;
+        }
+      }
+    }
+  }
+
+  bool _isCollided(PositionComponent block) {
+    bool isCollided = false;
+    isCollided = block.containsPoint(position) ||
+        block.containsPoint(position + size) ||
+        block.containsPoint(position + Vector2(size.x, 0)) ||
+        block.containsPoint(position + Vector2(0, size.y));
+    return isCollided;
+  }
+
+  void _handleVerticalCollisions() {
+    for (final prevCollision in closestVerticalCollisionComponents) {
+      final block = prevCollision.other;
+      if (prevCollision.intersectionPoints.length == 2) {
+        final p1 = prevCollision.intersectionPoints.elementAt(0);
+        final p2 = prevCollision.intersectionPoints.elementAt(1);
+        final dx = p1.x - p2.x;
+        if ((dx * 10000).round() == 0) {
+          // if the x values are the same, then we can assume that the player is colliding with a wall
+          continue;
+        }
+      }
+      if (block is CollisionBlock) {
+        if (!block.isPlatform) {
+          if (velocity.y > 0) {
+            position.y = block.top - size.y;
+          }
+          if (velocity.y < 0) {
+            position.y = block.bottom;
+          }
+          velocity.y = 0;
+        }
+      }
     }
   }
 
@@ -253,14 +328,12 @@ class Player extends SpriteAnimationGroupComponent
         dx -= adjustedMoveSpeed;
         if (isFacingRight) {
           flipHorizontallyAroundCenter();
-          isFacingRight = false;
         }
         current = PlayerState.run;
         break;
       case HorizontalPlayerDirection.right:
         if (!isFacingRight) {
           flipHorizontallyAroundCenter();
-          isFacingRight = true;
         }
         dx += adjustedMoveSpeed;
         current = PlayerState.run;
