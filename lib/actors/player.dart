@@ -4,13 +4,16 @@ import 'dart:developer';
 import 'package:flame/collisions.dart';
 import 'package:flame/components.dart';
 import 'package:flame/extensions.dart';
+import 'package:flame/palette.dart';
 import 'package:flutter/services.dart';
 import 'package:pixel_adventure/levels/collision_block.dart';
 
 import '../pixel_adventure.dart';
 
 const double stepTime = 0.05;
-const double gravity = 50;
+const double gravity = 20;
+const double jumpSpeed = 400;
+const double terminalVelocity = jumpSpeed;
 const double joystickVerticalSensitivityThreshold = 0.35;
 
 enum PlayerState { idle, run, hit, jump, fall, wallJump, doubleJump }
@@ -20,6 +23,27 @@ enum HorizontalPlayerDirection { left, right, none }
 enum VerticalPlayerDirection { up, down, none }
 
 enum PrimaryDirection { up, down, left, right, none }
+
+enum RectangleSide { top, bottom, left, right }
+
+double getSideForBlock(PositionComponent block, RectangleSide side) {
+  double value = 0;
+  switch (side) {
+    case RectangleSide.top:
+      value = block.position.y;
+      break;
+    case RectangleSide.bottom:
+      value = block.position.y + block.size.y;
+      break;
+    case RectangleSide.left:
+      value = block.position.x;
+      break;
+    case RectangleSide.right:
+      value = block.position.x + block.size.x;
+      break;
+  }
+  return value;
+}
 
 HorizontalPlayerDirection resolveHorizontalPlayerDirection(
     HorizontalPlayerDirection keyBoardDirection,
@@ -100,20 +124,35 @@ class Player extends SpriteAnimationGroupComponent
 
   double moveSpeed = 100;
   Vector2 velocity = Vector2.zero();
+  bool isGrounded = false;
+  // bool isJumping = false;
   JoystickComponent joystick;
+  Vector2 previousPosition = Vector2.zero();
+  Vector2 previousCenter = Vector2.zero();
+
+  late final CircleComponent centerIndicator;
 
   List<SavedCollision> collisionComponents = [];
 
   Player({required this.characterName, required this.joystick});
 
   // bool isFacingRight = true;
-
   bool get isFacingRight => !isFlippedHorizontally;
-  double get centerX => position.x + size.x / 2;
-  double get centerY => position.y + size.y / 2;
+  double get halfWidth => size.x / 2;
+  double get halfHeight => size.y / 2;
+
+  double get previousRight => previousCenter.x + halfWidth;
+  double get previousBottom => previousPosition.y + size.y;
+  double get previousLeft => previousCenter.x - halfWidth;
+  double get previousTop => previousPosition.y;
+
+  double get right => center.x + halfWidth;
+  double get bottom => position.y + size.y;
+  double get left => center.x - halfWidth;
+  double get top => position.y;
 
   List<SavedCollision> get closestHorizontalCollisionComponents {
-    final cx = centerX;
+    final cx = center.x;
     return collisionComponents.toList()
       ..sort((a, b) {
         final ax = a.other.position.x;
@@ -124,7 +163,7 @@ class Player extends SpriteAnimationGroupComponent
   }
 
   List<SavedCollision> get closestVerticalCollisionComponents {
-    final cy = centerY;
+    final cy = center.y;
     return collisionComponents.toList()
       ..sort((a, b) {
         final ay = a.other.position.y;
@@ -138,15 +177,24 @@ class Player extends SpriteAnimationGroupComponent
   FutureOr<void> onLoad() {
     _loadAllAnimations();
     add(RectangleHitbox());
+    centerIndicator = CircleComponent(radius: 2)
+      ..anchor = Anchor.center
+      ..position = Vector2(center.x, center.y)
+      ..paint = BasicPalette.red.paint()
+      ..debugMode = true;
+    game.level.add(centerIndicator);
     game.collisionDetection.collisionsCompletedNotifier
         .addListener(_resolveCollisions);
     debugMode = true;
+    previousPosition = Vector2(position.x, position.y);
+    previousCenter = Vector2(center.x, center.y);
     return super.onLoad();
   }
 
   @override
   void update(double dt) {
     _updatePlayerMovement(dt);
+    centerIndicator.position = Vector2(center.x, center.y);
     super.update(dt);
   }
 
@@ -187,6 +235,15 @@ class Player extends SpriteAnimationGroupComponent
       verticalKeyDirection = VerticalPlayerDirection.none;
     }
 
+    if (keysPressed.contains(LogicalKeyboardKey.keyT)) {
+      log("position: $position, size: $size, velocity: $velocity, previousPosition: $previousPosition, center: $center, previousCenter: $previousCenter");
+    }
+    if (keysPressed.contains(LogicalKeyboardKey.keyF)) {
+      if (horizontalDirection == HorizontalPlayerDirection.none) {
+        flipHorizontallyAroundCenter();
+      }
+    }
+
     // log('onKeyEvent: $event, $keysPressed');
     return super.onKeyEvent(event, keysPressed);
   }
@@ -208,64 +265,60 @@ class Player extends SpriteAnimationGroupComponent
   void _handleHorizontalCollisions() {
     for (final prevCollision in closestHorizontalCollisionComponents) {
       final block = prevCollision.other;
-      log('prevCollision: ${prevCollision.intersectionPoints} $block');
-      if (prevCollision.intersectionPoints.length == 2) {
-        final p1 = prevCollision.intersectionPoints.elementAt(0);
-        final p2 = prevCollision.intersectionPoints.elementAt(1);
-        final dy = p1.y - p2.y;
-        if ((dy * 10000).round() == 0) {
-          // if the y values are the same, then we can assume that the player is colliding with a wall
-          continue;
-        }
-      }
+
       if (block is CollisionBlock) {
         if (!block.isPlatform) {
           if (velocity.x > 0) {
-            position.x = block.left - size.x;
-          }
-          if (velocity.x < 0) {
-            if (isFacingRight) {
-              position.x = block.right;
-            } else {
-              position.x = block.right + size.x;
+            // moving right
+            if (previousRight <= block.left && right > block.left) {
+              velocity.x = 0;
+              final dx = block.left - right;
+              position.x += dx;
             }
           }
-          velocity.x = 0;
+          if (velocity.x < 0) {
+            // moving left
+            if (previousLeft >= block.right && left < block.right) {
+              velocity.x = 0;
+              final dx = block.right - left;
+              position.x += dx;
+            }
+          }
         }
       }
     }
   }
 
-  bool _isCollided(PositionComponent block) {
-    bool isCollided = false;
-    isCollided = block.containsPoint(position) ||
-        block.containsPoint(position + size) ||
-        block.containsPoint(position + Vector2(size.x, 0)) ||
-        block.containsPoint(position + Vector2(0, size.y));
-    return isCollided;
+  bool _isCollided(CollisionBlock block) {
+    final xCollision = (right - block.left) * (left - block.right) < 0;
+    final yCollision = (bottom - block.top) * (top - block.bottom) < 0;
+
+    return xCollision && yCollision;
   }
 
   void _handleVerticalCollisions() {
     for (final prevCollision in closestVerticalCollisionComponents) {
       final block = prevCollision.other;
-      if (prevCollision.intersectionPoints.length == 2) {
-        final p1 = prevCollision.intersectionPoints.elementAt(0);
-        final p2 = prevCollision.intersectionPoints.elementAt(1);
-        final dx = p1.x - p2.x;
-        if ((dx * 10000).round() == 0) {
-          // if the x values are the same, then we can assume that the player is colliding with a wall
+      if (block is CollisionBlock) {
+        if (!_isCollided(block)) {
           continue;
         }
-      }
-      if (block is CollisionBlock) {
+        if (velocity.y > 0) {
+          if (previousBottom <= block.top && bottom > block.top) {
+            velocity.y = 0;
+            final dy = block.top - bottom;
+            position.y += dy;
+            isGrounded = true;
+          }
+        }
         if (!block.isPlatform) {
-          if (velocity.y > 0) {
-            position.y = block.top - size.y;
-          }
           if (velocity.y < 0) {
-            position.y = block.bottom;
+            if (previousTop >= block.bottom && top < block.bottom) {
+              velocity.y = 0;
+              final dy = block.bottom - top;
+              position.y += dy;
+            }
           }
-          velocity.y = 0;
         }
       }
     }
@@ -280,10 +333,15 @@ class Player extends SpriteAnimationGroupComponent
   }
 
   double _adjustVerticalMoveSpeedFromJoystick() {
-    double adjustedMoveSpeed = moveSpeed;
-    if (joystick.direction != JoystickDirection.idle) {
-      adjustedMoveSpeed = moveSpeed * joystick.relativeDelta.y.abs();
-    }
+    double adjustedMoveSpeed = jumpSpeed;
+    // if (joystick.direction != JoystickDirection.idle &&
+    //     isGrounded &&
+    //     joystick.relativeDelta.y < 0) {
+    //   if (joystick.relativeDelta.y.abs() >
+    //       joystickVerticalSensitivityThreshold) {
+    //     adjustedMoveSpeed = jumpSpeed * joystick.relativeDelta.y.abs();
+    //   }
+    // }
     return adjustedMoveSpeed;
   }
 
@@ -312,6 +370,8 @@ class Player extends SpriteAnimationGroupComponent
   void _updatePlayerMovement(double dt) {
     _updateHorizontalMovement(dt);
     _updateVerticalMovement(dt);
+    previousPosition = Vector2(position.x, position.y);
+    previousCenter = Vector2(center.x, center.y);
     position += velocity * dt;
     collisionComponents.clear();
   }
@@ -346,31 +406,47 @@ class Player extends SpriteAnimationGroupComponent
   }
 
   void _updateVerticalMovement(double dt) {
-    // double dy = velocity.y + gravity * dt;
     double dy = 0;
+    // double dy = 0;
     double adjustedMoveSpeed = _adjustVerticalMoveSpeedFromJoystick();
     VerticalPlayerDirection joystickDirection =
         _getVerticalPlayerDirectionFromJoystick();
     verticalDirection =
         resolveVerticalPlayerDirection(verticalKeyDirection, joystickDirection);
-    switch (verticalDirection) {
-      case VerticalPlayerDirection.up:
-        dy -= adjustedMoveSpeed;
-        current = PlayerState.jump;
-        break;
-      case VerticalPlayerDirection.down:
-        dy += adjustedMoveSpeed;
+
+    if (verticalDirection == VerticalPlayerDirection.up && isGrounded) {
+      dy -= adjustedMoveSpeed;
+      isGrounded = false;
+      current = PlayerState.jump;
+    } else {
+      dy += gravity;
+      if (position.y > previousPosition.y && velocity.y > 0) {
+        isGrounded = false;
         current = PlayerState.fall;
-        break;
-      default:
-        // do nothing becasue the horizontal movement will take care of it
-        break;
-      // case VerticalPlayerDirection.none:
-      //   if(horizontalDirection == HorizontalPlayerDirection.none)
-      //   current = PlayerState.idle;
-      //   break;
+      }
     }
-    velocity = Vector2(velocity.x, dy);
+
+    // switch (verticalDirection) {
+    //   case VerticalPlayerDirection.up:
+    //     dy -= adjustedMoveSpeed;
+    //     current = PlayerState.jump;
+    //     break;
+    //   case VerticalPlayerDirection.down:
+    //     dy += adjustedMoveSpeed;
+    //     current = PlayerState.fall;
+    //     break;
+    //   default:
+    //     // do nothing becasue the horizontal movement will take care of it
+    //     break;
+    //   // case VerticalPlayerDirection.none:
+    //   //   if(horizontalDirection == HorizontalPlayerDirection.none)
+    //   //   current = PlayerState.idle;
+    //   //   break;
+    // }
+    // final yVelocity = velocity.y + dy;
+    // dy = dy.clamp(-terminalVelocity, terminalVelocity);
+    velocity = Vector2(velocity.x, velocity.y + dy);
+    velocity.y = velocity.y.clamp(-terminalVelocity, terminalVelocity);
   }
 
   void _loadAllAnimations() {
