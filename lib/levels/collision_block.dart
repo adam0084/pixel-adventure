@@ -20,8 +20,9 @@ class CollisionBlock extends PositionComponent {
 
   @override
   FutureOr<void> onLoad() {
-    add(RectangleHitbox(isSolid: !isPlatform, collisionType: CollisionType.passive));
-    debugMode = true;
+    add(RectangleHitbox(
+        isSolid: !isPlatform, collisionType: CollisionType.passive));
+    // debugMode = true;
     return super.onLoad();
   }
 }

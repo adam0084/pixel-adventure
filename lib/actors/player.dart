@@ -176,16 +176,21 @@ class Player extends SpriteAnimationGroupComponent
   @override
   FutureOr<void> onLoad() {
     _loadAllAnimations();
+    // Adjust collision detection to use hitbox instead of the whole sprite
+    // add(RectangleHitbox(
+    //   position: Vector2(10, 4),
+    //   size: Vector2(14, 28),
+    // ));
     add(RectangleHitbox());
     centerIndicator = CircleComponent(radius: 2)
       ..anchor = Anchor.center
       ..position = Vector2(center.x, center.y)
       ..paint = BasicPalette.red.paint()
       ..debugMode = true;
-    game.level.add(centerIndicator);
+    // game.level.add(centerIndicator);
     game.collisionDetection.collisionsCompletedNotifier
         .addListener(_resolveCollisions);
-    debugMode = true;
+    // debugMode = true;
     previousPosition = Vector2(position.x, position.y);
     previousCenter = Vector2(center.x, center.y);
     return super.onLoad();
@@ -417,12 +422,13 @@ class Player extends SpriteAnimationGroupComponent
     if (verticalDirection == VerticalPlayerDirection.up && isGrounded) {
       dy -= adjustedMoveSpeed;
       isGrounded = false;
-      current = PlayerState.jump;
     } else {
       dy += gravity;
       if (position.y > previousPosition.y && velocity.y > 0) {
         isGrounded = false;
         current = PlayerState.fall;
+      } else if (position.y < previousPosition.y && velocity.y < 0) {
+        current = PlayerState.jump;
       }
     }
 
