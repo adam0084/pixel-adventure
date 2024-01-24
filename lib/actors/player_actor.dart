@@ -8,6 +8,7 @@ import 'package:pixel_adventure/actors/player_move_behavior.dart';
 import 'package:pixel_adventure/actors/player_sprite.dart';
 import 'package:pixel_adventure/actors/player_state.dart';
 import 'package:pixel_adventure/constants.dart';
+import 'package:pixel_adventure/mixins/apply_gravity.dart';
 import 'package:pixel_adventure/mixins/has_main_controls.dart';
 import 'package:pixel_adventure/mixins/rectangular_collision_resolution.dart';
 import 'package:pixel_adventure/pixel_adventure.dart';
@@ -45,9 +46,10 @@ class PlayerActor extends ActorComponent
 
   @override
   void update(double dt) {
-    final nextMove = _getNextMoveBehavior(dt);
+    final nextVelocity = _getNextVelocity();
+    final nextMove = _getNextMoveBehavior(dt, nextVelocity);
     _applyPlayerMoveBehavior(nextMove);
-    _updateSprite();
+    _updateSprite(nextVelocity);
     super.update(dt);
   }
 
@@ -63,8 +65,8 @@ class PlayerActor extends ActorComponent
     y = moveBehavior.position.y;
   }
 
-  void _updateSprite() {
-    playerSprite.current = playerStateFromVelocity(velocity);
+  void _updateSprite(nextVelocity) {
+    playerSprite.current = playerStateFromVelocity(nextVelocity);
     if (playerSprite.isFlippedHorizontally &&
         idleHorizontalDirection == HorizontalPlayerDirection.right) {
       playerSprite.flipHorizontally();
@@ -76,21 +78,41 @@ class PlayerActor extends ActorComponent
     playerSprite.center = spriteCenter;
   }
 
-  PlayerMovebehavior _getNextMoveBehavior(double dt) {
+  Vector2 _getNextVelocity() {
     final directionVector = getPlayerDirectionVector();
+    double dy = 0;
 
-    final velocity = Vector2(
+    if (directionVector.verticalDirection == VerticalPlayerDirection.up &&
+        isGrounded) {
+      dy -= jumpSpeed;
+      dy -= gravity;
+      isGrounded = false;
+    } else {
+      // dy+= gravity;
+      if (velocity.y < 0) {
+        isGrounded = false;
+      }
+    }
+    Vector2 nextVelocity = Vector2(
       directionVector.dx,
-      directionVector.dy,
+      dy,
     );
+
+    nextVelocity.y = nextVelocity.y + velocity.y;
+    nextVelocity.y = nextVelocity.y.clamp(-terminalVelocity, terminalVelocity);
+    return nextVelocity;
+  }
+
+  PlayerMovebehavior _getNextMoveBehavior(double dt, Vector2 nextVelocity) {
+    nextVelocity = applyGravity(nextVelocity);
     final nextPosition = Vector2(x, y);
-    nextPosition.add(velocity * dt);
+    nextPosition.add(nextVelocity * dt);
     final nextCenter = Vector2(center.x, center.y);
-    nextCenter.add(velocity * dt);
+    nextCenter.add(nextVelocity * dt);
     return PlayerMovebehavior(
       position: nextPosition,
       center: nextCenter,
-      velocity: velocity,
+      velocity: nextVelocity,
     );
   }
 }
