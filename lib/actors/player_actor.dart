@@ -1,5 +1,6 @@
 import 'dart:ui';
 
+import 'package:flame/collisions.dart';
 import 'package:flame/components.dart';
 import 'package:pixel_adventure/actors/actor_component.dart';
 import 'package:pixel_adventure/actors/player_direction.dart';
@@ -8,22 +9,27 @@ import 'package:pixel_adventure/actors/player_sprite.dart';
 import 'package:pixel_adventure/actors/player_state.dart';
 import 'package:pixel_adventure/constants.dart';
 import 'package:pixel_adventure/mixins/has_main_controls.dart';
+import 'package:pixel_adventure/mixins/rectangular_collision_resolution.dart';
 import 'package:pixel_adventure/pixel_adventure.dart';
 
 class PlayerActor extends ActorComponent
-    with HasGameRef<PixelAdventure>, HasMainControls {
+    with
+        HasGameRef<PixelAdventure>,
+        HasMainControls,
+        RectangularCollisionResolution {
   final PlayerSprite playerSprite;
   final Vector2 spriteCenter = Vector2.all(playerSize / 2);
   late final RectangleComponent outlineIndicator;
 
-  PlayerMovebehavior previousMoveBehavior = PlayerMovebehavior();
-  Vector2 velocity = Vector2.zero();
-
   PlayerActor({characterName = "Mask Dude"})
-      : playerSprite = PlayerSprite(characterName: characterName);
+      : playerSprite = PlayerSprite(characterName: characterName) {
+    size = Vector2.all(playerSize);
+  }
 
   @override
   Future<void> onLoad() async {
+    debugMode = true;
+
     outlineIndicator = RectangleComponent(
       size: Vector2.all(32),
       paint: Paint()..color = const Color.fromARGB(135, 233, 15, 15),
@@ -31,7 +37,9 @@ class PlayerActor extends ActorComponent
 
     add(outlineIndicator);
     add(playerSprite);
-
+    add(RectangleHitbox(size: Vector2.all(playerSize)));
+    game.collisionDetection.collisionsCompletedNotifier
+        .addListener(resolveCollisions);
     await super.onLoad();
   }
 

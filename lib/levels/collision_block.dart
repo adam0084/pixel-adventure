@@ -3,8 +3,9 @@ import 'dart:async';
 import 'package:flame/collisions.dart';
 import 'package:flame/components.dart';
 import 'package:flame_tiled/flame_tiled.dart';
+import 'package:pixel_adventure/mixins/measurable_block.dart';
 
-class CollisionBlock extends PositionComponent {
+class CollisionBlock extends PositionComponent with MeasurableBlock {
   late final bool isPlatform;
 
   double get top => position.y;

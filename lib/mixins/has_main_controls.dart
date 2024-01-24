@@ -30,7 +30,7 @@ mixin HasMainControls
     Set<PlayerControlKeys> playerControlKeys =
         resolvePlayerControlKeys(event, keysPressed);
 
-    log("playerControlKeys: $playerControlKeys");
+    // log("playerControlKeys: $playerControlKeys");
     if (playerControlKeys.isEmpty) {
       return super.onKeyEvent(event, keysPressed);
     } else {
@@ -52,7 +52,7 @@ mixin HasMainControls
           idleHorizontalDirection = HorizontalPlayerDirection.right;
         }
       }
-      log("horizontalKeyDirection: $horizontalKeyDirection, verticalKeyDirection: $verticalKeyDirection, idleHorizontalDirection: $idleHorizontalDirection");
+      // log("horizontalKeyDirection: $horizontalKeyDirection, verticalKeyDirection: $verticalKeyDirection, idleHorizontalDirection: $idleHorizontalDirection");
       return true;
     }
   }
