@@ -22,4 +22,12 @@ extension PlayerDirection on JoystickComponent {
       return VerticalPlayerDirection.none;
     }
   }
+
+  double get horizontalMagnitude {
+    if (direction == JoystickDirection.idle) {
+      return 1.0;
+    } else {
+      return relativeDelta.x.abs();
+    }
+  }
 }

@@ -8,6 +8,7 @@ import 'package:flame/game.dart';
 import 'package:flame/layout.dart';
 import 'package:flutter/widgets.dart';
 import 'package:pixel_adventure/actors/player.dart';
+import 'package:pixel_adventure/actors/player_actor.dart';
 import 'package:pixel_adventure/levels/level.dart';
 import 'package:pixel_adventure/make_joystick.dart';
 
@@ -29,15 +30,18 @@ class PixelAdventure extends FlameGame
 
   late final JoystickComponent joystick;
   late final Level level;
-  late final Player player;
+  // late final Player player;
+  late final PlayerActor player;
 
   @override
   FutureOr<void> onLoad() async {
     await images.loadAllImages();
     joystick = makeJoystick(game: this);
-    player = Player(characterName: "Mask Dude", joystick: joystick);
+    // player = Player(characterName: "Mask Dude", joystick: joystick);
+    player = PlayerActor(characterName: "Mask Dude");
     // makeJoystick(game: this, size: 160.0, position: Vector2(10, 300));
-    level = Level(player: player);
+    // level = Level(player: player);
+    level = Level();
     world = level;
     // cam = CameraComponent.withFixedResolution(
     //     width: 640, height: 360, world: level);

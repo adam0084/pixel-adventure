@@ -2,13 +2,15 @@ import 'dart:async';
 
 import 'package:flame/components.dart';
 import 'package:flame_tiled/flame_tiled.dart';
-import 'package:pixel_adventure/actors/player.dart';
 import 'package:pixel_adventure/levels/collision_block.dart';
+import 'package:pixel_adventure/pixel_adventure.dart';
 
-class Level extends World {
-  late final Player player;
+class Level extends World with HasGameRef<PixelAdventure> {
+  // late final Player player;
 
-  Level({required this.player});
+  // Level({required this.player});
+
+  PositionComponent get player => gameRef.player;
 
   late TiledComponent level;
   // Add your custom code here

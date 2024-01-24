@@ -1,3 +1,0 @@
-class FlippablePositionComponent {
-  void flipHorizontally() {}
-}
