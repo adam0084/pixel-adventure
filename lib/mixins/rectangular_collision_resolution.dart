@@ -1,5 +1,3 @@
-import 'dart:developer';
-
 import 'package:flame/collisions.dart';
 import 'package:flame/components.dart';
 import 'package:pixel_adventure/actors/actor_component.dart';
@@ -48,13 +46,6 @@ mixin RectangularCollisionResolution on CollisionCallbacks, ActorComponent {
   }
 
   void _handleHorizontalCollisions() {
-    // final previousLeft = previousMoveBehavior.position.x;
-    // final previousRight = previousMoveBehavior.position.x + size.x;
-    // final left = position.x;
-    // final right = position.x + size.x;
-
-    // log("_handleHorizontalCollisions previousLeft: $previousLeft, previousRight: $previousRight, left: $left, right: $right");
-
     for (final block in closestHorizontalCollisionComponents) {
       if (block is CollisionBlock) {
         if (!block.isPlatform) {
@@ -65,9 +56,6 @@ mixin RectangularCollisionResolution on CollisionCallbacks, ActorComponent {
                 .right;
             final right = blockDimensions.right;
 
-            // final right = position.x + size.x;
-            // log("previousMoveBehavior: $previousMoveBehavior");
-            // log("right: $right, block.left: ${block.left}, previousRight: $previousRight, block.right: ${block.right}");
             if (previousRight <= block.left && right > block.left) {
               velocity.x = 0;
               final dx = block.left - right;
@@ -93,20 +81,16 @@ mixin RectangularCollisionResolution on CollisionCallbacks, ActorComponent {
   }
 
   void _handleVerticalCollisions() {
-    // final previousTop = previousMoveBehavior.position.y;
-    // final previousBottom = previousMoveBehavior.position.y + size.y;
-    // final top = position.y;
-    // final bottom = position.y + size.y;
-
     for (final block in closestVerticalCollisionComponents) {
       if (block is CollisionBlock) {
         if (!blockDimensions.isCollided(block.blockDimensions)) {
-          // log("no longer collided");
           continue;
         }
         if (velocity.y > 0) {
-          final previousBottom = previousMoveBehavior.position.y + size.y;
-          final bottom = position.y + size.y;
+          final previousBottom = blockDimensions
+              .fromPreviousMoveBehavior(previousMoveBehavior)
+              .bottom;
+          final bottom = blockDimensions.bottom;
           if (previousBottom <= block.top && bottom > block.top) {
             velocity.y = 0;
             final dy = block.top - bottom;
@@ -116,9 +100,10 @@ mixin RectangularCollisionResolution on CollisionCallbacks, ActorComponent {
         }
         if (!block.isPlatform) {
           if (velocity.y < 0) {
-            final previousTop = previousMoveBehavior.position.y;
-            final top = position.y;
-            // log("previousTop: $previousTop, top: $top, block.bottom: ${block.bottom}");
+            final previousTop = blockDimensions
+                .fromPreviousMoveBehavior(previousMoveBehavior)
+                .top;
+            final top = blockDimensions.top;
             if (previousTop >= block.bottom && top < block.bottom) {
               velocity.y = 0;
               final dy = block.bottom - top;
