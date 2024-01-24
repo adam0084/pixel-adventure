@@ -6,23 +6,17 @@ import 'package:flame/components.dart';
 import 'package:flame/extensions.dart';
 import 'package:flame/palette.dart';
 import 'package:flutter/services.dart';
+import 'package:pixel_adventure/actors/player_direction.dart';
+import 'package:pixel_adventure/actors/player_state.dart';
+import 'package:pixel_adventure/constants.dart';
 import 'package:pixel_adventure/levels/collision_block.dart';
+import 'package:pixel_adventure/mixins/resolve_horizontal_player_direction.dart';
+import 'package:pixel_adventure/mixins/resolve_vertical_player_direction.dart';
 
 import '../pixel_adventure.dart';
 
 const double stepTime = 0.05;
-const double gravity = 20;
-const double jumpSpeed = 400;
-const double terminalVelocity = jumpSpeed;
-const double joystickVerticalSensitivityThreshold = 0.35;
 
-enum PlayerState { idle, run, hit, jump, fall, wallJump, doubleJump }
-
-enum HorizontalPlayerDirection { left, right, none }
-
-enum VerticalPlayerDirection { up, down, none }
-
-enum PrimaryDirection { up, down, left, right, none }
 
 enum RectangleSide { top, bottom, left, right }
 
@@ -43,30 +37,6 @@ double getSideForBlock(PositionComponent block, RectangleSide side) {
       break;
   }
   return value;
-}
-
-HorizontalPlayerDirection resolveHorizontalPlayerDirection(
-    HorizontalPlayerDirection keyBoardDirection,
-    HorizontalPlayerDirection joystickDirection) {
-  HorizontalPlayerDirection direction = HorizontalPlayerDirection.none;
-  if (keyBoardDirection != HorizontalPlayerDirection.none) {
-    direction = keyBoardDirection;
-  } else if (joystickDirection != HorizontalPlayerDirection.none) {
-    direction = joystickDirection;
-  }
-  return direction;
-}
-
-VerticalPlayerDirection resolveVerticalPlayerDirection(
-    VerticalPlayerDirection keyBoardDirection,
-    VerticalPlayerDirection joystickDirection) {
-  VerticalPlayerDirection direction = VerticalPlayerDirection.none;
-  if (keyBoardDirection != VerticalPlayerDirection.none) {
-    direction = keyBoardDirection;
-  } else if (joystickDirection != VerticalPlayerDirection.none) {
-    direction = joystickDirection;
-  }
-  return direction;
 }
 
 PrimaryDirection getXDirectionFromVelocity(Vector2 velocity) {
