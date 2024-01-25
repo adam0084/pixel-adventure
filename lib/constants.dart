@@ -7,3 +7,5 @@ const double jumpSpeed = 450;
 const double terminalVelocity = jumpSpeed;
 
 const double playerSize = 32;
+
+const double backgroundSize = 64;
